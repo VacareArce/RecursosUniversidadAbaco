@@ -181,9 +181,85 @@ h1, h2, h3, h4 {
     background-size: .65em auto, 100%;
 }
 
+input[type="date"].filter-select {
+    background-image: none;
+    padding-right: 1rem;
+}
+
 .filter-select:focus {
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px rgba(0,168,89, 0.1);
+}
+
+.sponsor-notice {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px dashed #e1e1e1;
+    font-size: 0.85rem;
+    color: var(--color-text-light);
+    text-align: center;
+}
+
+.sponsor-notice strong {
+    color: var(--color-secondary);
+    font-weight: 700;
+}
+
+/* Sort Toolbar inside results header */
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.sort-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.sort-label {
+    font-size: 0.9rem;
+    color: var(--color-text-light);
+    font-weight: 600;
+    margin-right: 0.25rem;
+}
+
+.btn-sort {
+    background-color: var(--color-bg-light);
+    border: 1px solid #e1e1e1;
+    color: var(--color-text);
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.btn-sort:hover {
+    background-color: #f0f0f0;
+    border-color: #ccc;
+}
+
+.btn-sort.active {
+    background-color: var(--color-accent);
+    color: var(--color-white);
+    border-color: var(--color-accent);
+}
+
+.btn-sort .sort-arrow {
+    display: inline-block;
+    min-width: 0.6rem;
+    text-align: center;
 }
 
 /* Videos Grid */
@@ -299,6 +375,7 @@ h1, h2, h3, h4 {
     color: var(--color-text);
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }

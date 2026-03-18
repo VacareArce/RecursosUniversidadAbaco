@@ -12,7 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterPrograma = document.getElementById('filter-programa');
     const dateStart = document.getElementById('filter-date-start');
     const dateEnd = document.getElementById('filter-date-end');
+    const sortButtons = document.querySelectorAll('.btn-sort');
     const resetBtn = document.getElementById('reset-filters');
+    
+    let currentSort = { field: 'date', dir: 'desc' };
     
     const modal = document.getElementById('video-modal');
     const btnClose = document.getElementById('close-modal');
@@ -37,16 +40,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const tipos = new Set();
         const bancos = new Set();
         const programas = new Set();
+        let minDate = null;
+        let maxDate = null;
         
         allVideos.forEach(v => {
             if(v.tipo) tipos.add(v.tipo);
             if(v.banco) bancos.add(v.banco);
             if(v.programa) programas.add(v.programa);
+            
+            const vDate = parseDate(v.fecha);
+            if(vDate) {
+                if(!minDate || vDate < minDate) minDate = vDate;
+                if(!maxDate || vDate > maxDate) maxDate = vDate;
+            }
         });
 
         populateSelect(filterTipo, Array.from(tipos).sort());
         populateSelect(filterBanco, Array.from(bancos).sort());
         populateSelect(filterPrograma, Array.from(programas).sort());
+        
+        // Configurar fechas límites
+        if(minDate && maxDate) {
+            const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            dateStart.value = fmt(minDate);
+            dateStart.dataset.defaultVal = fmt(minDate);
+            dateEnd.value = fmt(maxDate);
+            dateEnd.dataset.defaultVal = fmt(maxDate);
+        }
     }
 
     function populateSelect(selectEl, options) {
@@ -137,6 +157,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return null; // fallback
     }
 
+    // Helper function to parse 'HH:MM:SS' or 'MM:SS' into seconds
+    function parseDuration(timeStr) {
+        if (!timeStr) return 0;
+        const parts = timeStr.trim().split(':').map(Number);
+        if (parts.length === 3) { // HH:MM:SS
+            return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+        } else if (parts.length === 2) { // MM:SS
+            return (parts[0] * 60) + parts[1];
+        }
+        return parseInt(timeStr) || 0;
+    }
+
     // Filter Logic
     function handleFilters() {
         const searchTerm = globalSearch.value.toLowerCase();
@@ -177,6 +209,25 @@ document.addEventListener('DOMContentLoaded', () => {
             return matchTipo && matchBanco && matchProg && matchSearch && matchDate;
         });
 
+        // Sorting Logic
+        filtered.sort((a, b) => {
+            let res = 0;
+            if (currentSort.field === 'date') {
+                const dateA = parseDate(a.fecha) || new Date(0);
+                const dateB = parseDate(b.fecha) || new Date(0);
+                res = dateA - dateB;
+            } else if (currentSort.field === 'banco') {
+                res = (a.banco || '').localeCompare(b.banco || '');
+            } else if (currentSort.field === 'programa') {
+                res = (a.programa || '').localeCompare(b.programa || '');
+            } else if (currentSort.field === 'duracion') {
+                const durA = parseDuration(a.tiempo);
+                const durB = parseDuration(b.tiempo);
+                res = durA - durB;
+            }
+            return currentSort.dir === 'asc' ? res : -res;
+        });
+
         renderVideos(filtered);
     }
 
@@ -188,13 +239,45 @@ document.addEventListener('DOMContentLoaded', () => {
     dateStart.addEventListener('change', handleFilters);
     dateEnd.addEventListener('change', handleFilters);
 
+    function updateSortButtonsUI() {
+        sortButtons.forEach(btn => {
+            btn.classList.remove('active');
+            btn.querySelector('.sort-arrow').textContent = '';
+        });
+        
+        const activeBtn = Array.from(sortButtons).find(b => b.dataset.sort === currentSort.field);
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+            activeBtn.querySelector('.sort-arrow').textContent = currentSort.dir === 'asc' ? '↑' : '↓';
+        }
+    }
+
+    sortButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const field = btn.dataset.sort;
+            if (currentSort.field === field) {
+                // toggle direction
+                currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                // switch field and default direction
+                currentSort.field = field;
+                // date/duration naturally desc initially, others asc
+                currentSort.dir = (field === 'date' || field === 'duracion') ? 'desc' : 'asc';
+            }
+            updateSortButtonsUI();
+            handleFilters();
+        });
+    });
+
     resetBtn.addEventListener('click', () => {
         globalSearch.value = '';
         filterTipo.value = '';
         filterBanco.value = '';
         filterPrograma.value = '';
-        dateStart.value = '';
-        dateEnd.value = '';
+        dateStart.value = dateStart.dataset.defaultVal || '';
+        dateEnd.value = dateEnd.dataset.defaultVal || '';
+        currentSort = { field: 'date', dir: 'desc' };
+        updateSortButtonsUI();
         handleFilters();
     });
 
