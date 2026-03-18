@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterTipo = document.getElementById('filter-tipo');
     const filterBanco = document.getElementById('filter-banco');
     const filterPrograma = document.getElementById('filter-programa');
+    const dateStart = document.getElementById('filter-date-start');
+    const dateEnd = document.getElementById('filter-date-end');
     const resetBtn = document.getElementById('reset-filters');
     
     const modal = document.getElementById('video-modal');
@@ -125,12 +127,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Helper function to parse 'DD/MM/YYYY' into a Date object
+    function parseDate(dateStr) {
+        if (!dateStr) return null;
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+        return null; // fallback
+    }
+
     // Filter Logic
     function handleFilters() {
         const searchTerm = globalSearch.value.toLowerCase();
         const tipoVal = filterTipo.value;
         const bancoVal = filterBanco.value;
         const progVal = filterPrograma.value;
+        const startVal = dateStart.value ? new Date(dateStart.value + 'T00:00:00') : null;
+        let endVal = dateEnd.value ? new Date(dateEnd.value + 'T00:00:00') : null;
+
+        // If endVal is selected, extend to the end of that day locally
+        if (endVal) {
+            endVal.setHours(23, 59, 59, 999);
+        }
 
         const filtered = allVideos.filter(v => {
             // Dropdowns
@@ -138,11 +157,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const matchBanco = !bancoVal || v.banco === bancoVal;
             const matchProg = !progVal || v.programa === progVal;
 
+            // Date Range
+            let matchDate = true;
+            if (startVal || endVal) {
+                const videoDate = parseDate(v.fecha);
+                if (videoDate) {
+                    if (startVal && videoDate < startVal) matchDate = false;
+                    if (endVal && videoDate > endVal) matchDate = false;
+                } else {
+                    // if it has no valid date, optionally hide it when filtering by date
+                    matchDate = false;
+                }
+            }
+
             // Search text (checks multiple fields)
             const searchText = `${v.tema} ${v.entrevistado} ${v.programa} ${v.banco} ${v.fecha}`.toLowerCase();
             const matchSearch = !searchTerm || searchText.includes(searchTerm);
 
-            return matchTipo && matchBanco && matchProg && matchSearch;
+            return matchTipo && matchBanco && matchProg && matchSearch && matchDate;
         });
 
         renderVideos(filtered);
@@ -153,12 +185,16 @@ document.addEventListener('DOMContentLoaded', () => {
     filterTipo.addEventListener('change', handleFilters);
     filterBanco.addEventListener('change', handleFilters);
     filterPrograma.addEventListener('change', handleFilters);
+    dateStart.addEventListener('change', handleFilters);
+    dateEnd.addEventListener('change', handleFilters);
 
     resetBtn.addEventListener('click', () => {
         globalSearch.value = '';
         filterTipo.value = '';
         filterBanco.value = '';
         filterPrograma.value = '';
+        dateStart.value = '';
+        dateEnd.value = '';
         handleFilters();
     });
 
