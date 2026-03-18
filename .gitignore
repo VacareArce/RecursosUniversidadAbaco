@@ -1,0 +1,5 @@
+/Data/Temp/*.csv
+/Data/Temp/*.xlsx
+node_modules/
+.env
+.gemini/

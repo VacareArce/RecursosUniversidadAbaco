@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recursos Audiovisuales - ABACO</title>
+    <!-- Use Google Fonts as fallbacks to give a premium feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/videos.css">
+</head>
+<body>
+
+    <!-- Header Section -->
+    <header class="main-header">
+        <div class="header-content">
+            <div class="logo-container">
+                <!-- Using a placeholder logo in case the actual path is not provided, matching ABACO's white bg rule -->
+                <img src="https://abaco.org.co/wp-content/uploads/2022/01/logo-ABACO-1.png" alt="Logo ABACO" class="brand-logo" onerror="this.onerror=null; this.src='https://via.placeholder.com/200x60?text=ABACO';">
+            </div>
+            <nav class="header-nav">
+                <a href="#" class="nav-link active">Biblioteca de Videos</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1>Explora nuestros Recursos</h1>
+            <p>Encuentra todas las entrevistas, temas técnicos y programas de la Asociación de Bancos de Alimentos de Colombia.</p>
+            
+            <!-- Global Search -->
+            <div class="search-bar-container">
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" id="global-search" placeholder="Busca por palabra clave, tema o entrevistado...">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="dashboard-container">
+        
+        <!-- Sidebar Filters -->
+        <aside class="sidebar-filters">
+            <div class="filter-header">
+                <h2>Filtros</h2>
+                <button id="reset-filters" class="btn-reset">Limpiar</button>
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-tipo">Tipo de Contenido</label>
+                <select id="filter-tipo" class="filter-select">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-banco">Banco de Alimentos</label>
+                <select id="filter-banco" class="filter-select">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-programa">Programa</label>
+                <select id="filter-programa" class="filter-select">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+
+        </aside>
+
+        <!-- Videos Display -->
+        <section class="videos-section">
+            <div class="results-header">
+                <h2 id="results-count">Cargando videos...</h2>
+            </div>
+            
+            <div id="videos-grid" class="videos-grid">
+                <!-- Video cards will be dynamically injected here -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Video Modal -->
+    <div id="video-modal" class="modal">
+        <div class="modal-content">
+            <button id="close-modal" class="btn-close">&times;</button>
+            <div class="video-container" id="video-embed-container">
+                <!-- iframe will be generated here -->
+            </div>
+            <div class="video-details" id="video-modal-details">
+                <!-- Details injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/videos.js"></script>
+</body>
+</html>
