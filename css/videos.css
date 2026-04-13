@@ -40,32 +40,13 @@ h1, h2, h3, h4 {
 
 /* ===== Hero Section ===== */
 .hero {
-    position: relative;
-    background: linear-gradient(135deg, rgba(0,168,89, 0.9) 0%, rgba(210,222,56, 0.8) 100%);
-    padding: 2rem 1.5rem;
+    padding: 1.5rem 1.5rem 0;
     text-align: center;
-    color: var(--color-white);
-    overflow: hidden;
 }
 
 .hero-content {
-    position: relative;
-    z-index: 10;
     max-width: 800px;
     margin: 0 auto;
-}
-
-.hero h1 {
-    color: var(--color-white);
-    font-size: 2.2rem;
-    margin-bottom: 0.5rem;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-}
-
-.hero p {
-    font-size: 1.1rem;
-    margin-bottom: 1.5rem;
-    opacity: 0.95;
 }
 
 .search-bar-container {
