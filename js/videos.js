@@ -1,6 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     
-    const DATA_URL = 'Data/videos.json';
+    const configuredApiUrl = window.ABACO_CONFIG && typeof window.ABACO_CONFIG.apiUrl === 'string'
+        ? window.ABACO_CONFIG.apiUrl.trim()
+        : '';
+    const DATA_URL = configuredApiUrl || 'Data/videos.json';
     let allVideos = [];
     
     // DOM Elements
@@ -24,16 +27,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load Data
     fetch(DATA_URL)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            allVideos = data;
+            allVideos = normalizeVideos(data);
+            if (allVideos.length === 0) {
+                resultsCount.textContent = 'No hay videos disponibles para mostrar.';
+                return;
+            }
             initializeFilters();
             renderVideos(allVideos);
         })
         .catch(err => {
             console.error('Error loading videos:', err);
-            resultsCount.textContent = 'Hubo un error cargando los videos. Verifique el archivo videos.json.';
+            resultsCount.textContent = 'Hubo un error cargando los videos. Verifique la fuente de datos configurada.';
         });
+
+    function normalizeVideos(payload) {
+        if (Array.isArray(payload)) {
+            return payload;
+        }
+
+        if (payload && Array.isArray(payload.videos)) {
+            return payload.videos;
+        }
+
+        return [];
+    }
 
     // Initialize Dropdowns
     function initializeFilters() {
