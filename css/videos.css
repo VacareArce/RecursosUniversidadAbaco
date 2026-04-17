@@ -51,8 +51,15 @@ h1, h2, h3, h4 {
 
 .search-bar-container {
     width: 100%;
-    max-width: 700px;
+    max-width: 100%;
     margin: 0 auto;
+    position: sticky;
+    top: 0;
+    padding-top: 2rem;
+    padding-bottom: 1.5rem;
+    margin-bottom: 0.5rem;
+    background-color: var(--color-bg-light);
+    z-index: 100;
 }
 
 .search-input-wrapper {
