@@ -64,7 +64,7 @@ Si encuentra mas de un año, no sube datos y muestra un mensaje para corregir la
 Si encuentra exactamente un año, envia todas las filas al endpoint:
 
 ```txt
-https://universidadabaco.org/RecursosUniversidadAbaco/api/sync-year.php
+https://recursos.universidadabaco.org/api/sync-year.php
 ```
 
 La API del proyecto filtra internamente solo las filas donde `U ABACO = SI` y escribe:

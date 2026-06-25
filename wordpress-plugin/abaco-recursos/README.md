@@ -135,8 +135,8 @@ add_filter('abaco_recursos_data_dir', function () {
 ```html
 <script>
   window.ABACO_CONFIG = {
-    dataUrl: '/RecursosUniversidadAbaco/Data/videos.json',
-    indexUrl: '/RecursosUniversidadAbaco/Data/videos-index.json'
+    dataUrl: 'Data/videos.json',
+    indexUrl: 'Data/videos-index.json'
   };
 </script>
 ```

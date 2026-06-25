@@ -1,6 +1,6 @@
 const DEFAULT_CONFIG = {
   sheetName: 'colmundo',
-  endpointUrl: 'https://universidadabaco.org/RecursosUniversidadAbaco/api/sync-year.php',
+  endpointUrl: 'https://recursos.universidadabaco.org/api/sync-year.php',
   syncToken: 'abaco-recursos-sync-2026-7f4c9b2e',
   headerRow: ''
 };
