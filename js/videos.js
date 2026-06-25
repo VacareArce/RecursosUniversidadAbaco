@@ -1,9 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
     
-    const configuredApiUrl = window.ABACO_CONFIG && typeof window.ABACO_CONFIG.apiUrl === 'string'
-        ? window.ABACO_CONFIG.apiUrl.trim()
+    const configuredDataUrl = window.ABACO_CONFIG && typeof window.ABACO_CONFIG.dataUrl === 'string'
+        ? window.ABACO_CONFIG.dataUrl.trim()
         : '';
-    const DATA_URL = configuredApiUrl || 'Data/videos.json';
+    const configuredIndexUrl = window.ABACO_CONFIG && typeof window.ABACO_CONFIG.indexUrl === 'string'
+        ? window.ABACO_CONFIG.indexUrl.trim()
+        : '';
+    const LOCAL_DATA_URL = 'Data/videos.json';
+    const dataSources = [];
+    if (configuredDataUrl) {
+        dataSources.push(configuredDataUrl);
+    }
+    if (!dataSources.includes(LOCAL_DATA_URL)) {
+        dataSources.push(LOCAL_DATA_URL);
+    }
     let allVideos = [];
     
     // DOM Elements
@@ -13,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterTipo = document.getElementById('filter-tipo');
     const filterBanco = document.getElementById('filter-banco');
     const filterPrograma = document.getElementById('filter-programa');
+    const filterYear = document.getElementById('filter-year');
     const dateStart = document.getElementById('filter-date-start');
     const dateEnd = document.getElementById('filter-date-end');
     const sortButtons = document.querySelectorAll('.btn-sort');
@@ -25,38 +36,113 @@ document.addEventListener('DOMContentLoaded', () => {
     const videoEmbedContainer = document.getElementById('video-embed-container');
     const videoModalDetails = document.getElementById('video-modal-details');
 
-    // Load Data
-    fetch(DATA_URL)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            allVideos = normalizeVideos(data);
-            if (allVideos.length === 0) {
-                resultsCount.textContent = 'No hay videos disponibles para mostrar.';
-                return;
-            }
-            initializeFilters();
-            renderVideos(allVideos);
-        })
-        .catch(err => {
-            console.error('Error loading videos:', err);
+    loadVideos();
+
+    function loadVideos() {
+        if (configuredIndexUrl) {
+            loadVideosFromIndex(configuredIndexUrl).catch(err => {
+                console.error(`Error loading videos index from ${configuredIndexUrl}:`, err);
+                loadVideosFromSources(0);
+            });
+            return;
+        }
+
+        loadVideosFromSources(0);
+    }
+
+    function loadVideosFromIndex(indexUrl) {
+        return fetch(indexUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(index => {
+                const files = Array.isArray(index.files) ? index.files : [];
+                if (files.length === 0) {
+                    throw new Error('No year files found in videos index.');
+                }
+
+                return Promise.all(files.map(file => {
+                    const fileUrl = typeof file === 'string' ? file : file.url;
+                    if (!fileUrl) return [];
+
+                    return fetch(resolveUrl(fileUrl))
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(normalizeVideos);
+                }));
+            })
+            .then(yearGroups => {
+                allVideos = yearGroups.flat();
+                if (allVideos.length === 0) {
+                    resultsCount.textContent = 'No hay videos disponibles para mostrar.';
+                    return;
+                }
+
+                initializeFilters();
+                renderVideos(allVideos);
+            });
+    }
+
+    function loadVideosFromSources(index) {
+        if (index >= dataSources.length) {
             resultsCount.textContent = 'Hubo un error cargando los videos. Verifique la fuente de datos configurada.';
-        });
+            return;
+        }
+
+        const sourceUrl = dataSources[index];
+
+        fetch(sourceUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                allVideos = normalizeVideos(data);
+                if (allVideos.length === 0) {
+                    resultsCount.textContent = 'No hay videos disponibles para mostrar.';
+                    return;
+                }
+
+                initializeFilters();
+                renderVideos(allVideos);
+            })
+            .catch(err => {
+                console.error(`Error loading videos from ${sourceUrl}:`, err);
+                loadVideosFromSources(index + 1);
+            });
+    }
 
     function normalizeVideos(payload) {
+        let videos = [];
         if (Array.isArray(payload)) {
-            return payload;
+            videos = payload;
+        } else if (payload && Array.isArray(payload.videos)) {
+            videos = payload.videos;
         }
 
-        if (payload && Array.isArray(payload.videos)) {
-            return payload.videos;
-        }
+        return videos.map(video => ({
+            ...video,
+            year: video.year || getYearFromDate(video.fecha)
+        }));
+    }
 
-        return [];
+    function resolveUrl(url) {
+        return new URL(url, window.location.origin).href;
+    }
+
+    function getYearFromDate(dateStr) {
+        if (!dateStr) return '';
+        const parts = String(dateStr).split('/');
+        return parts.length === 3 ? String(parts[2]) : '';
     }
 
     // Initialize Dropdowns
@@ -64,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tipos = new Set();
         const bancos = new Set();
         const programas = new Set();
+        const years = new Set();
         let minDate = null;
         let maxDate = null;
         
@@ -71,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(v.tipo) tipos.add(v.tipo);
             if(v.banco) bancos.add(v.banco);
             if(v.programa) programas.add(v.programa);
+            if(v.year) years.add(String(v.year));
             
             const vDate = parseDate(v.fecha);
             if(vDate) {
@@ -82,6 +170,9 @@ document.addEventListener('DOMContentLoaded', () => {
         populateSelect(filterTipo, Array.from(tipos).sort());
         populateSelect(filterBanco, Array.from(bancos).sort());
         populateSelect(filterPrograma, Array.from(programas).sort());
+        if (filterYear) {
+            populateSelect(filterYear, Array.from(years).sort((a, b) => Number(b) - Number(a)));
+        }
         
         // Configurar fechas límites
         if(minDate && maxDate) {
@@ -199,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tipoVal = filterTipo.value;
         const bancoVal = filterBanco.value;
         const progVal = filterPrograma.value;
+        const yearVal = filterYear ? filterYear.value : '';
         const startVal = dateStart.value ? new Date(dateStart.value + 'T00:00:00') : null;
         let endVal = dateEnd.value ? new Date(dateEnd.value + 'T00:00:00') : null;
 
@@ -212,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const matchTipo = !tipoVal || v.tipo === tipoVal;
             const matchBanco = !bancoVal || v.banco === bancoVal;
             const matchProg = !progVal || v.programa === progVal;
+            const matchYear = !yearVal || String(v.year) === yearVal;
 
             // Date Range
             let matchDate = true;
@@ -227,10 +320,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Search text (checks multiple fields)
-            const searchText = `${v.tema} ${v.entrevistado} ${v.programa} ${v.banco} ${v.fecha}`.toLowerCase();
+            const searchText = `${v.tema} ${v.entrevistado} ${v.programa} ${v.banco} ${v.fecha} ${v.year}`.toLowerCase();
             const matchSearch = !searchTerm || searchText.includes(searchTerm);
 
-            return matchTipo && matchBanco && matchProg && matchSearch && matchDate;
+            return matchTipo && matchBanco && matchProg && matchYear && matchSearch && matchDate;
         });
 
         // Sorting Logic
@@ -260,6 +353,9 @@ document.addEventListener('DOMContentLoaded', () => {
     filterTipo.addEventListener('change', handleFilters);
     filterBanco.addEventListener('change', handleFilters);
     filterPrograma.addEventListener('change', handleFilters);
+    if (filterYear) {
+        filterYear.addEventListener('change', handleFilters);
+    }
     dateStart.addEventListener('change', handleFilters);
     dateEnd.addEventListener('change', handleFilters);
 
@@ -298,6 +394,9 @@ document.addEventListener('DOMContentLoaded', () => {
         filterTipo.value = '';
         filterBanco.value = '';
         filterPrograma.value = '';
+        if (filterYear) {
+            filterYear.value = '';
+        }
         dateStart.value = dateStart.dataset.defaultVal || '';
         dateEnd.value = dateEnd.dataset.defaultVal || '';
         currentSort = { field: 'date', dir: 'desc' };

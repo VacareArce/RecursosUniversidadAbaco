@@ -53,6 +53,13 @@
                 </select>
             </div>
 
+            <div class="filter-group">
+                <label for="filter-year">Año</label>
+                <select id="filter-year" class="filter-select">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+
             <!-- Sponsor Notice -->
             <div class="sponsor-notice">
                 <p>Estos espacios de noticias son donados por <strong>Colmundo Radio</strong>.</p>
@@ -101,14 +108,13 @@
         </div>
     </div>
 
-    <!-- Optional config for WordPress REST source in preview mode -->
-    <!--
+    <!-- WordPress preview config: usa el mismo JSON del plugin -->
     <script>
         window.ABACO_CONFIG = {
-            apiUrl: 'https://tu-dominio.com/wp-json/abaco/v1/videos'
+            dataUrl: '/RecursosUniversidadAbaco/Data/videos.json',
+            indexUrl: '/RecursosUniversidadAbaco/Data/videos-index.json'
         };
     </script>
-    -->
 
     <!-- Scripts -->
     <script src="js/videos.js"></script>

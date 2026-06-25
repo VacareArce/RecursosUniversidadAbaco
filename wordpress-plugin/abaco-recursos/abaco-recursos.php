@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: ABACO Recursos Audiovisuales
- * Description: Integra el buscador de recursos audiovisuales de ABACO en WordPress mediante shortcode y API REST.
- * Version: 1.0.0
+ * Plugin Name: Recursos Videos
+ * Description: Muestra un buscador de videos con filtros, ordenamiento y visor modal dentro de WordPress mediante shortcode, consumiendo un archivo JSON externo del proyecto.
+ * Version: 1.2.0
  * Author: ABACO
  */
 
@@ -12,85 +12,19 @@ if (!defined('ABSPATH')) {
 
 final class Abaco_Recursos_Plugin {
     private const SHORTCODE = 'abaco_recursos';
-    private const CPT = 'abaco_video';
-    private const TAX_TIPO = 'abaco_tipo';
-    private const TAX_BANCO = 'abaco_banco';
-    private const TAX_PROGRAMA = 'abaco_programa';
+    private const SYNC_TOKEN = 'abaco-recursos-sync-2026-7f4c9b2e';
 
     public static function init() {
-        add_action('init', [__CLASS__, 'register_content_model']);
         add_action('rest_api_init', [__CLASS__, 'register_rest_routes']);
         add_action('wp_enqueue_scripts', [__CLASS__, 'enqueue_assets']);
         add_shortcode(self::SHORTCODE, [__CLASS__, 'render_shortcode']);
     }
 
-    public static function register_content_model() {
-        register_post_type(
-            self::CPT,
-            [
-                'labels' => [
-                    'name' => 'Videos ABACO',
-                    'singular_name' => 'Video ABACO',
-                    'add_new_item' => 'Agregar video ABACO',
-                    'edit_item' => 'Editar video ABACO',
-                ],
-                'public' => true,
-                'show_ui' => true,
-                'show_in_rest' => true,
-                'menu_position' => 25,
-                'menu_icon' => 'dashicons-video-alt3',
-                'supports' => ['title'],
-                'has_archive' => false,
-                'rewrite' => ['slug' => 'recursos-abaco'],
-            ]
-        );
-
-        $taxonomy_args = [
-            'public' => true,
-            'show_ui' => true,
-            'show_admin_column' => true,
-            'show_in_rest' => true,
-            'hierarchical' => false,
-        ];
-
-        register_taxonomy(self::TAX_TIPO, [self::CPT], array_merge($taxonomy_args, [
-            'labels' => [
-                'name' => 'Tipos de contenido',
-                'singular_name' => 'Tipo de contenido',
-            ],
-        ]));
-
-        register_taxonomy(self::TAX_BANCO, [self::CPT], array_merge($taxonomy_args, [
-            'labels' => [
-                'name' => 'Bancos de alimentos',
-                'singular_name' => 'Banco de alimentos',
-            ],
-        ]));
-
-        register_taxonomy(self::TAX_PROGRAMA, [self::CPT], array_merge($taxonomy_args, [
-            'labels' => [
-                'name' => 'Programas',
-                'singular_name' => 'Programa',
-            ],
-        ]));
-
-        self::register_meta('abaco_fecha', 'string');
-        self::register_meta('abaco_duracion', 'string');
-        self::register_meta('abaco_youtube_id', 'string');
-        self::register_meta('abaco_enlace', 'string');
-        self::register_meta('abaco_entrevistado', 'string');
-        self::register_meta('abaco_tema', 'string');
-    }
-
-    private static function register_meta($key, $type) {
-        register_post_meta(self::CPT, $key, [
-            'show_in_rest' => true,
-            'single' => true,
-            'type' => $type,
-            'sanitize_callback' => 'sanitize_text_field',
-            'auth_callback' => function() {
-                return current_user_can('edit_posts');
-            },
+    public static function register_rest_routes() {
+        register_rest_route('abaco-recursos/v1', '/sync-year', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => [__CLASS__, 'validate_sync_token'],
+            'callback' => [__CLASS__, 'sync_year'],
         ]);
     }
 
@@ -124,8 +58,14 @@ final class Abaco_Recursos_Plugin {
             true
         );
 
+        $data_url = (string) apply_filters(
+            'abaco_recursos_data_url',
+            $asset_base_url . 'Data/videos.json'
+        );
+
         wp_localize_script('abaco-recursos-script', 'ABACO_CONFIG', [
-            'apiUrl' => esc_url_raw(rest_url('abaco/v1/videos')),
+            'dataUrl' => esc_url_raw($data_url),
+            'indexUrl' => esc_url_raw($asset_base_url . 'Data/videos-index.json'),
         ]);
     }
 
@@ -138,76 +78,209 @@ final class Abaco_Recursos_Plugin {
         return ob_get_clean();
     }
 
-    public static function register_rest_routes() {
-        register_rest_route('abaco/v1', '/videos', [
-            'methods' => WP_REST_Server::READABLE,
-            'permission_callback' => '__return_true',
-            'callback' => [__CLASS__, 'get_videos'],
-        ]);
+    public static function validate_sync_token($request) {
+        $token = (string) $request->get_header('x-abaco-sync-token');
+        if ($token === '') {
+            $token = (string) $request->get_param('token');
+        }
+
+        if (!hash_equals(self::SYNC_TOKEN, $token)) {
+            return new WP_Error('abaco_recursos_forbidden', 'Token de sincronizacion invalido.', ['status' => 403]);
+        }
+
+        return true;
     }
 
-    public static function get_videos() {
-        $query = new WP_Query([
-            'post_type' => self::CPT,
-            'post_status' => 'publish',
-            'posts_per_page' => -1,
-            'orderby' => 'date',
-            'order' => 'DESC',
-            'no_found_rows' => true,
-        ]);
+    public static function sync_year($request) {
+        $payload = $request->get_json_params();
+        if (!is_array($payload)) {
+            return new WP_Error('abaco_recursos_invalid_payload', 'El cuerpo debe ser JSON valido.', ['status' => 400]);
+        }
+
+        $year = isset($payload['year']) ? (int) $payload['year'] : 0;
+        $items = isset($payload['items']) && is_array($payload['items']) ? $payload['items'] : [];
+
+        if ($year < 2000 || $year > 2100) {
+            return new WP_Error('abaco_recursos_invalid_year', 'El campo year es requerido y debe ser valido.', ['status' => 400]);
+        }
+
+        if (empty($items)) {
+            return new WP_Error('abaco_recursos_empty_items', 'El campo items debe contener filas.', ['status' => 400]);
+        }
 
         $videos = [];
+        $skipped = 0;
 
-        foreach ($query->posts as $post) {
-            $post_id = (int) $post->ID;
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                $skipped++;
+                continue;
+            }
 
-            $videos[] = [
-                'fecha' => self::resolve_fecha($post_id, $post),
-                'enlace' => self::meta($post_id, 'abaco_enlace'),
-                'youtube_id' => self::meta($post_id, 'abaco_youtube_id'),
-                'tiempo' => self::meta($post_id, 'abaco_duracion'),
-                'programa' => self::term_or_empty($post_id, self::TAX_PROGRAMA),
-                'entrevistado' => self::meta($post_id, 'abaco_entrevistado'),
-                'banco' => self::term_or_empty($post_id, self::TAX_BANCO),
-                'tema' => self::resolve_tema($post_id, $post),
-                'tipo' => self::term_or_empty($post_id, self::TAX_TIPO),
-            ];
+            $video = self::normalize_sheet_item($item, $year);
+            if ($video === null) {
+                $skipped++;
+                continue;
+            }
+
+            $videos[] = $video;
+        }
+
+        usort($videos, function($a, $b) {
+            return self::date_sort_value($a['fecha']) <=> self::date_sort_value($b['fecha']);
+        });
+
+        $data_dir = self::data_dir();
+        if (!wp_mkdir_p($data_dir)) {
+            return new WP_Error('abaco_recursos_data_dir_error', 'No fue posible crear la carpeta Data.', ['status' => 500]);
+        }
+
+        $year_file = trailingslashit($data_dir) . 'videos-' . $year . '.json';
+        $written = file_put_contents($year_file, wp_json_encode($videos, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        if ($written === false) {
+            return new WP_Error('abaco_recursos_write_error', 'No fue posible escribir el archivo anual.', ['status' => 500]);
+        }
+
+        $index = self::write_year_index($data_dir);
+        if (is_wp_error($index)) {
+            return $index;
         }
 
         return rest_ensure_response([
-            'videos' => $videos,
-            'total' => count($videos),
+            'ok' => true,
+            'year' => $year,
+            'saved' => count($videos),
+            'skipped' => $skipped,
+            'file' => basename($year_file),
+            'index' => $index,
         ]);
     }
 
-    private static function resolve_fecha($post_id, $post) {
-        $fecha = self::meta($post_id, 'abaco_fecha');
-        if ($fecha !== '') {
-            return $fecha;
-        }
-        return mysql2date('j/n/Y', $post->post_date);
-    }
-
-    private static function resolve_tema($post_id, $post) {
-        $tema = self::meta($post_id, 'abaco_tema');
-        if ($tema !== '') {
-            return $tema;
-        }
-        return get_the_title($post);
-    }
-
-    private static function meta($post_id, $key) {
-        return trim((string) get_post_meta($post_id, $key, true));
-    }
-
-    private static function term_or_empty($post_id, $taxonomy) {
-        $terms = get_the_terms($post_id, $taxonomy);
-        if (is_wp_error($terms) || empty($terms)) {
-            return '';
+    private static function normalize_sheet_item($item, $fallback_year) {
+        $u_abaco = strtoupper(self::field($item, ['U ABACO', 'U_ABACO', 'Universidad ABACO', 'Universidad Abaco']));
+        if ($u_abaco !== 'SI') {
+            return null;
         }
 
-        return (string) $terms[0]->name;
+        $enlace = self::field($item, ['Enlace', 'enlace', 'Link', 'URL']);
+        if ($enlace === '') {
+            return null;
+        }
+
+        $day = (int) self::field($item, ['Día', 'Dia', 'dia', 'day']);
+        $month = (int) self::field($item, ['Mes', 'mes', 'month']);
+        $year = (int) self::field($item, ['Año', 'Ano', 'anio', 'year']);
+        if ($year <= 0) {
+            $year = $fallback_year;
+        }
+
+        $formato = self::field($item, ['Formato', 'formato']);
+
+        return [
+            'fecha' => $day . '/' . $month . '/' . $year,
+            'enlace' => $enlace,
+            'youtube_id' => self::extract_youtube_id($enlace),
+            'tiempo' => self::field($item, ['Tiempo', 'tiempo', 'Duración', 'Duracion']),
+            'programa' => $formato,
+            'entrevistado' => self::field($item, ['Invitado', 'invitado', 'Entrevistado', 'entrevistado']),
+            'banco' => self::field($item, ['Organización', 'Organizacion', 'organizacion', 'Organizacion/Banco']),
+            'tema' => self::field($item, ['Tema técnico', 'Tema tecnico', 'tema', 'Tema']),
+            'tipo' => $formato,
+            'year' => $year,
+        ];
     }
+
+    private static function field($item, $keys) {
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $item)) {
+                return self::clean_text($item[$key]);
+            }
+        }
+
+        return '';
+    }
+
+    private static function clean_text($value) {
+        $value = is_scalar($value) ? (string) $value : '';
+        $value = sanitize_textarea_field($value);
+        $value = preg_replace('/\s+/u', ' ', $value);
+        return trim((string) $value);
+    }
+
+    private static function extract_youtube_id($value) {
+        $value = trim((string) $value);
+        $patterns = [
+            '/youtu\.be\/([A-Za-z0-9_-]{6,})/i',
+            '/youtube\.com\/live\/([A-Za-z0-9_-]{6,})/i',
+            '/youtube\.com\/watch\?[^\s]*v=([A-Za-z0-9_-]{6,})/i',
+            '/youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/i',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $value, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        return '';
+    }
+
+    private static function write_year_index($data_dir) {
+        $files = glob(trailingslashit($data_dir) . 'videos-*.json');
+        $asset_base_url = trailingslashit((string) apply_filters(
+            'abaco_recursos_asset_base_url',
+            home_url('/RecursosUniversidadAbaco/')
+        ));
+
+        $index_files = [];
+        foreach ($files as $file) {
+            if (!preg_match('/videos-(\d{4})\.json$/', basename($file), $matches)) {
+                continue;
+            }
+
+            $year = (int) $matches[1];
+            $index_files[] = [
+                'year' => $year,
+                'url' => esc_url_raw($asset_base_url . 'Data/videos-' . $year . '.json'),
+            ];
+        }
+
+        usort($index_files, function($a, $b) {
+            return $a['year'] <=> $b['year'];
+        });
+
+        $index = [
+            'years' => array_values(array_map(function($file) {
+                return $file['year'];
+            }, $index_files)),
+            'files' => $index_files,
+        ];
+
+        $index_file = trailingslashit($data_dir) . 'videos-index.json';
+        $written = file_put_contents($index_file, wp_json_encode($index, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        if ($written === false) {
+            return new WP_Error('abaco_recursos_index_write_error', 'No fue posible escribir videos-index.json.', ['status' => 500]);
+        }
+
+        return $index;
+    }
+
+    private static function data_dir() {
+        return (string) apply_filters(
+            'abaco_recursos_data_dir',
+            trailingslashit(ABSPATH) . 'RecursosUniversidadAbaco/Data'
+        );
+    }
+
+    private static function date_sort_value($date) {
+        $parts = array_map('intval', explode('/', (string) $date));
+        if (count($parts) !== 3) {
+            return 0;
+        }
+
+        return mktime(0, 0, 0, $parts[1], $parts[0], $parts[2]);
+    }
+
 }
 
 Abaco_Recursos_Plugin::init();

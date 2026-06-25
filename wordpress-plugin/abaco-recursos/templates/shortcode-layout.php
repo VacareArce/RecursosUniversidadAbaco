@@ -36,6 +36,13 @@
             </select>
         </div>
 
+        <div class="filter-group">
+            <label for="filter-year">Año</label>
+            <select id="filter-year" class="filter-select">
+                <option value="">Todos</option>
+            </select>
+        </div>
+
         <div class="sponsor-notice">
             <p>Estos espacios de noticias son donados por <strong>Colmundo Radio</strong>.</p>
         </div>
