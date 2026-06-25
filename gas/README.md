@@ -25,10 +25,20 @@ Para cambiarlo:
 2. `Configurar nombre de pestaña`.
 3. Escribe el nombre exacto de la pestaña.
 
+El script detecta automaticamente la fila de encabezados buscando columnas clave como `Día`, `Mes`, `Año`, `Enlace`, `Formato` y `U ABACO`.
+
+Si la hoja cambia o quieres forzar una fila especifica:
+
+1. Menu `Recursos Videos`.
+2. `Configurar fila de encabezado`.
+3. Escribe el numero de fila donde estan los encabezados, por ejemplo `17`.
+4. Deja el campo vacio para volver al modo automatico.
+
 Tambien puedes configurar:
 
 - Endpoint WordPress.
 - Token de sincronizacion.
+- Fila de encabezado.
 
 ## Uso
 
@@ -43,10 +53,15 @@ Tambien puedes configurar:
    - `Invitado`
    - `Organización`
    - `Tema técnico`
-2. Menu `Recursos Videos`.
-3. `Sincronizar pestaña`.
+2. Verifica que la columna `Año` tenga un solo año en toda la tabla.
+3. Menu `Recursos Videos`.
+4. `Sincronizar pestaña`.
 
-El script detecta el año desde la columna `Año` y envia todas las filas al endpoint:
+El script extrae el año desde la columna `Año`.
+
+Si encuentra mas de un año, no sube datos y muestra un mensaje para corregir la hoja. Cada archivo/pestaña debe contener datos de un solo año.
+
+Si encuentra exactamente un año, envia todas las filas al endpoint:
 
 ```txt
 /wp-json/abaco-recursos/v1/sync-year
