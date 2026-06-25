@@ -36,7 +36,7 @@ Si la hoja cambia o quieres forzar una fila especifica:
 
 Tambien puedes configurar:
 
-- Endpoint WordPress.
+   - Endpoint de la API del proyecto.
 - Token de sincronizacion.
 - Fila de encabezado.
 
@@ -64,7 +64,14 @@ Si encuentra mas de un año, no sube datos y muestra un mensaje para corregir la
 Si encuentra exactamente un año, envia todas las filas al endpoint:
 
 ```txt
-/wp-json/abaco-recursos/v1/sync-year
+https://universidadabaco.org/RecursosUniversidadAbaco/api/sync-year.php
 ```
 
-El plugin de WordPress filtra internamente solo las filas donde `U ABACO = SI`.
+La API del proyecto filtra internamente solo las filas donde `U ABACO = SI` y escribe:
+
+```txt
+/RecursosUniversidadAbaco/Data/videos-{año}.json
+/RecursosUniversidadAbaco/Data/videos-index.json
+```
+
+Esta API no depende del plugin de WordPress para recibir datos.
